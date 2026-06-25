@@ -44,6 +44,3 @@ def embed_chunks(chunks: list[dict]) -> list[dict]:
 
     return embedded_chunks
 
-
-if __name__ == "__main__":
-    print(CONFIG["embedder_model"])
