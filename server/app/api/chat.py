@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from app.services.embedder import embed_text
 from app.services.database import create_chat_session, create_project, get_chat_session
 from app.services.store_vector import search_chunks
-from app.services.llm import generate_response
+from app.services.llm import generate_message
 
 router = APIRouter(
     prefix="/chat",
@@ -94,15 +94,11 @@ def send_message(chat_id: str, request: SendMessageRequest):
     )
     messages = [
         {
-            "role": "system",
-            "content": "Answer using only the provided document context. If the answer is not in the context, say you do not know.",
-        },
-        {
             "role": "user",
             "content": f"Context:\n{context}\n\nQuestion:\n{user_message}",
         },
     ]
-    answer = generate_response(messages)
+    answer = generate_message(messages)
 
     return {
         "chat_id": chat_id,
