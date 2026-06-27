@@ -19,6 +19,7 @@ def get_collection():
 
 
 def add_chunks(
+    project_id: str,
     document_id: str,
     filename: str,
     chunks: list[dict],
@@ -34,6 +35,7 @@ def add_chunks(
     for chunk in chunks:
         chunk_index = chunk["chunk_index"]
         metadata = {
+            "project_id": project_id,
             "document_id": document_id,
             "filename": filename,
             "chunk_index": chunk_index,
@@ -59,12 +61,22 @@ def add_chunks(
 def search_chunks(
     query_embedding: list[float],
     top_k: int = 5,
+    project_id: str | None = None,
     document_ids: list[str] | None = None,
 ) -> list[dict]:
     collection = get_collection()
     where = None
 
-    if document_ids:
+    if project_id and document_ids:
+        where = {
+            "$and": [
+                {"project_id": project_id},
+                {"document_id": {"$in": document_ids}},
+            ],
+        }
+    elif project_id:
+        where = {"project_id": project_id}
+    elif document_ids:
         where = {"document_id": {"$in": document_ids}}
 
     query_args = {
