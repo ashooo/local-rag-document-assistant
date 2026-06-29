@@ -23,6 +23,34 @@ class FakeCollection:
         self.delete_call = kwargs
 
 
+class FakeFrontMatterCollection:
+    def __init__(self):
+        self.get_call = None
+
+    def get(self, **kwargs):
+        self.get_call = kwargs
+        return {
+            "ids": [
+                "doc_2_chunk_1",
+                "doc_1_chunk_2",
+                "doc_1_chunk_0",
+                "doc_1_chunk_1",
+            ],
+            "documents": [
+                "Second document body",
+                "First document body",
+                "First document title",
+                "First document authors",
+            ],
+            "metadatas": [
+                {"project_id": "project_1", "document_id": "doc_2", "page": 2, "chunk_index": 1},
+                {"project_id": "project_1", "document_id": "doc_1", "page": 3, "chunk_index": 2},
+                {"project_id": "project_1", "document_id": "doc_1", "page": 1, "chunk_index": 0},
+                {"project_id": "project_1", "document_id": "doc_1", "page": 1, "chunk_index": 1},
+            ],
+        }
+
+
 def test_add_chunks_writes_project_document_metadata(monkeypatch):
     collection = FakeCollection()
     monkeypatch.setattr(store_vector, "get_collection", lambda: collection)
@@ -87,3 +115,20 @@ def test_delete_document_chunks_deletes_by_document_id(monkeypatch):
     store_vector.delete_document_chunks("doc_1")
 
     assert collection.delete_call == {"where": {"document_id": "doc_1"}}
+
+
+def test_get_front_matter_chunks_returns_early_chunks_per_document(monkeypatch):
+    collection = FakeFrontMatterCollection()
+    monkeypatch.setattr(store_vector, "get_collection", lambda: collection)
+
+    results = store_vector.get_front_matter_chunks("project_1", max_chunks_per_document=2)
+
+    assert collection.get_call == {
+        "where": {"project_id": "project_1"},
+        "include": ["documents", "metadatas"],
+    }
+    assert [result["id"] for result in results] == [
+        "doc_1_chunk_0",
+        "doc_1_chunk_1",
+        "doc_2_chunk_1",
+    ]

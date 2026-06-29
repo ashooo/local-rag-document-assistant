@@ -36,6 +36,9 @@ def init_db():
                 filename TEXT NOT NULL,
                 content_type TEXT,
                 file_path TEXT NOT NULL,
+                page_count INTEGER,
+                chunk_count INTEGER,
+                status TEXT,
                 uploaded_at TEXT NOT NULL,
                 FOREIGN KEY (project_id) REFERENCES projects(id)
             )
@@ -63,6 +66,9 @@ def init_db():
         """)
 
         _ensure_column(conn, "documents", "project_id", "TEXT")
+        _ensure_column(conn, "documents", "page_count", "INTEGER")
+        _ensure_column(conn, "documents", "chunk_count", "INTEGER")
+        _ensure_column(conn, "documents", "status", "TEXT")
         _ensure_column(conn, "chat_sessions", "project_id", "TEXT")
 
 
@@ -99,7 +105,10 @@ def create_document(
         filename: str,
         content_type: str | None,
         file_path: str,
-        uploaded_at: str
+        uploaded_at: str,
+        page_count: int | None = None,
+        chunk_count: int | None = None,
+        status: str | None = None,
     ):
     with get_connection() as conn:
         conn.execute(
@@ -110,9 +119,12 @@ def create_document(
                 filename,
                 content_type,
                 file_path,
+                page_count,
+                chunk_count,
+                status,
                 uploaded_at    
             ) VALUES (
-                ?,?,?,?,?,?
+                ?,?,?,?,?,?,?,?,?
             )
             """,
             (
@@ -121,6 +133,9 @@ def create_document(
                 filename,
                 content_type,
                 file_path,
+                page_count,
+                chunk_count,
+                status,
                 uploaded_at    
             )
         )
@@ -138,6 +153,9 @@ def get_document(
                 filename,
                 content_type,
                 file_path,
+                page_count,
+                chunk_count,
+                status,
                 uploaded_at
             FROM
                 documents
@@ -156,6 +174,15 @@ def delete_document(
         document_id: str    
     ):
     with get_connection() as conn:
+        conn.execute(
+            """
+            DELETE FROM chat_documents
+            WHERE document_id = ?
+            """,
+            (
+                document_id,
+            ),
+        )
         cursor = conn.execute(
             """
             DELETE FROM documents
@@ -167,6 +194,55 @@ def delete_document(
         )
     
     return cursor.rowcount > 0
+
+
+def update_document_index_status(
+        document_id: str,
+        page_count: int,
+        chunk_count: int,
+        status: str,
+    ):
+    with get_connection() as conn:
+        conn.execute(
+            """
+            UPDATE documents
+            SET
+                page_count = ?,
+                chunk_count = ?,
+                status = ?
+            WHERE id = ?
+            """,
+            (
+                page_count,
+                chunk_count,
+                status,
+                document_id,
+            ),
+        )
+
+
+def list_project_documents(project_id: str) -> list[dict]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT
+                id,
+                project_id,
+                filename,
+                content_type,
+                file_path,
+                page_count,
+                chunk_count,
+                COALESCE(status, 'indexed') AS status,
+                uploaded_at
+            FROM documents
+            WHERE project_id = ?
+            ORDER BY uploaded_at DESC
+            """,
+            (project_id,),
+        ).fetchall()
+
+    return [dict(row) for row in rows]
 
 
 def create_chat_session(
@@ -216,6 +292,26 @@ def get_chat_session(chat_id: str) -> dict | None:
         ).fetchone()
 
     return dict(row) if row else None
+
+
+def list_project_chat_sessions(project_id: str) -> list[dict]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT
+                id,
+                project_id,
+                title,
+                created_at,
+                updated_at
+            FROM chat_sessions
+            WHERE project_id = ?
+            ORDER BY updated_at DESC
+            """,
+            (project_id,),
+        ).fetchall()
+
+    return [dict(row) for row in rows]
 
 
 def link_document_to_chat(

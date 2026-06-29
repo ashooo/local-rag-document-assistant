@@ -106,6 +106,54 @@ def search_chunks(
     return matches
 
 
+def get_front_matter_chunks(
+    project_id: str,
+    max_chunks_per_document: int = 3,
+) -> list[dict]:
+    collection = get_collection()
+    results = collection.get(
+        where={"project_id": project_id},
+        include=["documents", "metadatas"],
+    )
+
+    matches = []
+    ids = results.get("ids", [])
+    documents = results.get("documents", [])
+    metadatas = results.get("metadatas", [])
+
+    for index, chunk_id in enumerate(ids):
+        metadata = metadatas[index] or {}
+        matches.append({
+            "id": chunk_id,
+            "text": documents[index],
+            "metadata": metadata,
+            "distance": None,
+        })
+
+    matches.sort(
+        key=lambda result: (
+            result["metadata"].get("document_id", ""),
+            result["metadata"].get("page", 10**9),
+            result["metadata"].get("chunk_index", 10**9),
+        )
+    )
+
+    selected = []
+    selected_counts = {}
+
+    for result in matches:
+        document_id = result["metadata"].get("document_id") or result["id"]
+        count = selected_counts.get(document_id, 0)
+
+        if count >= max_chunks_per_document:
+            continue
+
+        selected.append(result)
+        selected_counts[document_id] = count + 1
+
+    return selected
+
+
 def delete_document_chunks(document_id: str) -> None:
     collection = get_collection()
     collection.delete(where={"document_id": document_id})

@@ -5,8 +5,13 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from app.services.embedder import embed_text
-from app.services.database import create_chat_session, create_project, get_chat_session
-from app.services.store_vector import search_chunks
+from app.services.database import (
+    create_chat_session,
+    create_project,
+    get_chat_session,
+    list_project_chat_sessions,
+)
+from app.services.store_vector import get_front_matter_chunks, search_chunks
 from app.services.llm import generate_message
 
 router = APIRouter(
@@ -23,6 +28,18 @@ class CreateChatRequest(BaseModel):
 class SendMessageRequest(BaseModel):
     content: str = Field(..., min_length=1)
     top_k: int = Field(default=5, ge=1, le=20)
+
+
+FRONT_MATTER_TERMS = (
+    "author",
+    "authors",
+    "study title",
+    "title",
+    "paper title",
+    "article title",
+    "research title",
+    "publication",
+)
 
 
 @router.post("")
@@ -49,6 +66,25 @@ def create_chat(request: CreateChatRequest):
         "project_id": request.project_id,
         "title": request.title,
         "created_at": created_at,
+    }
+
+
+@router.get("")
+def list_chats(project_id: str = "default"):
+    chat_sessions = list_project_chat_sessions(project_id)
+
+    return {
+        "project_id": project_id,
+        "chats": [
+            {
+                "chat_id": chat_session["id"],
+                "project_id": chat_session["project_id"],
+                "title": chat_session["title"],
+                "created_at": chat_session["created_at"],
+                "updated_at": chat_session["updated_at"],
+            }
+            for chat_session in chat_sessions
+        ],
     }
 
 
@@ -79,6 +115,11 @@ def send_message(chat_id: str, request: SendMessageRequest):
         top_k=request.top_k,
         project_id=project_id,
     )
+    if _needs_front_matter(user_message):
+        results = _merge_chunks(
+            get_front_matter_chunks(project_id=project_id),
+            results,
+        )
 
     if not results:
         return {
@@ -107,9 +148,32 @@ def send_message(chat_id: str, request: SendMessageRequest):
         "sources": [
             {
                 "id": result["id"],
+                "text": result["text"],
                 "metadata": result["metadata"],
                 "distance": result["distance"],
             }
             for result in results
         ],
     }
+
+
+def _needs_front_matter(message: str) -> bool:
+    normalized = message.casefold()
+    return any(term in normalized for term in FRONT_MATTER_TERMS)
+
+
+def _merge_chunks(*chunk_groups: list[dict]) -> list[dict]:
+    merged = []
+    seen_ids = set()
+
+    for group in chunk_groups:
+        for chunk in group:
+            chunk_id = chunk["id"]
+
+            if chunk_id in seen_ids:
+                continue
+
+            merged.append(chunk)
+            seen_ids.add(chunk_id)
+
+    return merged

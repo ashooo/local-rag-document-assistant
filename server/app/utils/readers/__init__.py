@@ -3,11 +3,11 @@ from importlib import import_module
 
 
 READERS = {
-    ".pdf": "utils.readers.pdf_reader",
-    ".docx": "utils.readers.docx_reader",
-    ".md": "utils.readers.markdown_reader",
-    ".markdown": "utils.readers.markdown_reader",
-    ".txt": "utils.readers.txt_reader",
+    ".pdf": "app.utils.readers.pdf_reader",
+    ".docx": "app.utils.readers.docx_reader",
+    ".md": "app.utils.readers.markdown_reader",
+    ".markdown": "app.utils.readers.markdown_reader",
+    ".txt": "app.utils.readers.txt_reader",
 }
 
 
