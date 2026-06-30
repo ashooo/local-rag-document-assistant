@@ -1,6 +1,14 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  ChangeEvent,
+  DragEvent,
+  FormEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 type Message = {
   role: "assistant" | "user";
@@ -61,8 +69,10 @@ export default function Home() {
   const [isLoadingWorkspace, setIsLoadingWorkspace] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [deletingDocumentId, setDeletingDocumentId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const dragDepth = useRef(0);
 
   const canSend = Boolean(chat?.chat_id) && !isSending && !isLoadingWorkspace;
   const activeChatTitle = chat?.title || "Document chat";
@@ -260,10 +270,7 @@ export default function Home() {
     }
   }
 
-  async function uploadDocument(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-
+  async function uploadFile(file: File | undefined) {
     if (!file || isUploading) {
       return;
     }
@@ -307,6 +314,55 @@ export default function Home() {
     } finally {
       setIsUploading(false);
     }
+  }
+
+  async function uploadDocument(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    await uploadFile(file);
+  }
+
+  function handleDragEnter(event: DragEvent<HTMLElement>) {
+    if (!hasDraggedFiles(event)) {
+      return;
+    }
+
+    event.preventDefault();
+    dragDepth.current += 1;
+    setIsDraggingFile(true);
+  }
+
+  function handleDragOver(event: DragEvent<HTMLElement>) {
+    if (!hasDraggedFiles(event)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  }
+
+  function handleDragLeave(event: DragEvent<HTMLElement>) {
+    if (!hasDraggedFiles(event)) {
+      return;
+    }
+
+    event.preventDefault();
+    dragDepth.current = Math.max(dragDepth.current - 1, 0);
+
+    if (dragDepth.current === 0) {
+      setIsDraggingFile(false);
+    }
+  }
+
+  async function handleDrop(event: DragEvent<HTMLElement>) {
+    if (!hasDraggedFiles(event)) {
+      return;
+    }
+
+    event.preventDefault();
+    dragDepth.current = 0;
+    setIsDraggingFile(false);
+    await uploadFile(event.dataTransfer.files[0]);
   }
 
   async function deleteDocument(documentId: string) {
@@ -413,7 +469,15 @@ export default function Home() {
           </div>
         </aside>
 
-        <section className="flex min-w-0 flex-col bg-[#0f1115]">
+        <section
+          className={`relative flex min-w-0 flex-col bg-[#0f1115] ${
+            isDraggingFile ? "ring-2 ring-inset ring-[#8fb7ff]" : ""
+          }`}
+          onDragEnter={handleDragEnter}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
           <header className="flex h-14 items-center justify-between border-b border-white/10 px-5">
             <div className="min-w-0">
               <h1 className="truncate text-sm font-semibold">{activeChatTitle}</h1>
@@ -422,8 +486,11 @@ export default function Home() {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <label className="cursor-pointer rounded-md border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm text-[#d6dae4] hover:bg-white/[0.08]">
-                {isUploading ? "Indexing" : "Upload"}
+              <label
+                className="grid h-9 w-9 cursor-pointer place-items-center rounded-md border border-white/10 bg-white/[0.04] text-xl leading-none text-[#d6dae4] hover:bg-white/[0.08] has-disabled:cursor-not-allowed has-disabled:opacity-50"
+                title={isUploading ? "Indexing document" : "Upload document"}
+              >
+                {isUploading ? "..." : "+"}
                 <input
                   className="sr-only"
                   type="file"
@@ -433,6 +500,14 @@ export default function Home() {
               </label>
             </div>
           </header>
+
+          {isDraggingFile && (
+            <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center bg-[#0f1115]/80">
+              <div className="rounded-md border border-[#8fb7ff]/60 bg-[#172235] px-5 py-3 text-sm font-medium text-[#dbe8ff] shadow-lg">
+                Drop to upload and index
+              </div>
+            </div>
+          )}
 
           <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
             <div className="mx-auto flex max-w-3xl flex-col gap-5">
@@ -594,4 +669,8 @@ async function readErrorDetail(response: Response) {
   } catch {
     return null;
   }
+}
+
+function hasDraggedFiles(event: DragEvent<HTMLElement>) {
+  return Array.from(event.dataTransfer.types).includes("Files");
 }
