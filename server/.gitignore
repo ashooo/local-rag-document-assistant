@@ -1,3 +1,27 @@
 venv/
 .env
 data/
+lab*
+lab/
+
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Test and type-check caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local runtime output
+*.log
+*.sqlite
+*.sqlite3
+*.db
+
+# Local environment files
+.env.*
+!.env.example
