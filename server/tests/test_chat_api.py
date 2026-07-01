@@ -70,7 +70,7 @@ def test_send_message_searches_project_and_generates_answer(monkeypatch):
     monkeypatch.setattr(chat, "get_chat_session", lambda chat_id: {"id": chat_id, "project_id": "project_1"})
     monkeypatch.setattr(chat, "embed_text", lambda text: [0.1, 0.2])
     monkeypatch.setattr(
-        chat,
+        chat.vector_store,
         "search_chunks",
         lambda query_embedding, top_k, project_id: [
             {
@@ -104,7 +104,7 @@ def test_send_message_adds_front_matter_for_title_author_questions(monkeypatch):
     monkeypatch.setattr(chat, "get_chat_session", lambda chat_id: {"id": chat_id, "project_id": "project_1"})
     monkeypatch.setattr(chat, "embed_text", lambda text: [0.1, 0.2])
     monkeypatch.setattr(
-        chat,
+        chat.vector_store,
         "get_front_matter_chunks",
         lambda project_id: [
             {
@@ -122,7 +122,7 @@ def test_send_message_adds_front_matter_for_title_author_questions(monkeypatch):
         ],
     )
     monkeypatch.setattr(
-        chat,
+        chat.vector_store,
         "search_chunks",
         lambda query_embedding, top_k, project_id: [
             {

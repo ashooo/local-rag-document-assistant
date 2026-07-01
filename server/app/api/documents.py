@@ -4,7 +4,7 @@ from pathlib import Path
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
-from app.config import UPLOADS_DIR
+from app.config import CHROMA_DIR, UPLOADS_DIR
 from app.services.database import (
     create_chat_session,
     create_document,
@@ -16,7 +16,7 @@ from app.services.database import (
     update_document_index_status,
 )
 from app.services.embedder import embed_chunks, embed_text
-from app.services.store_vector import add_chunks, delete_document_chunks, search_chunks
+from app.services.store_vector import VectorStore
 from app.utils.chunker import chunk_pages
 from app.utils.readers import read_file, supported_extensions
 
@@ -24,6 +24,7 @@ router = APIRouter(
     prefix="/file",
     tags=["file"],
 )
+vector_store = VectorStore(CHROMA_DIR)
 
 
 class SearchRequest(BaseModel):
@@ -103,7 +104,7 @@ async def import_file(
         pages = read_file(str(saved_file_path), safe_filename)
         chunks = chunk_pages(pages)
         embedded = embed_chunks(chunks)
-        add_chunks(project_id, document_id, safe_filename, embedded)
+        vector_store.add_chunks(project_id, document_id, safe_filename, embedded)
         update_document_index_status(
             document_id=document_id,
             page_count=len(pages),
@@ -135,7 +136,7 @@ async def search_file(request: SearchRequest):
         raise HTTPException(status_code=400, detail="Search query cannot be empty")
 
     query_embedding = embed_text(query)
-    results = search_chunks(
+    results = vector_store.search_chunks(
         query_embedding=query_embedding,
         top_k=request.top_k,
         project_id=request.project_id,
@@ -163,7 +164,7 @@ async def remove_document(document_id: str):
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    delete_document_chunks(document_id)
+    vector_store.delete_document_chunks(document_id)
     deleted = delete_document(document_id)
 
     if not deleted:

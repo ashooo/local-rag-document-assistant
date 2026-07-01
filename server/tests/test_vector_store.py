@@ -53,9 +53,10 @@ class FakeFrontMatterCollection:
 
 def test_add_chunks_writes_project_document_metadata(monkeypatch):
     collection = FakeCollection()
-    monkeypatch.setattr(store_vector, "get_collection", lambda: collection)
+    vector_store = store_vector.VectorStore(chroma_dir="unused")
+    monkeypatch.setattr(vector_store, "get_collection", lambda: collection)
 
-    store_vector.add_chunks(
+    vector_store.add_chunks(
         project_id="project_1",
         document_id="doc_1",
         filename="notes.txt",
@@ -85,9 +86,10 @@ def test_add_chunks_writes_project_document_metadata(monkeypatch):
 
 def test_search_chunks_filters_by_project(monkeypatch):
     collection = FakeCollection()
-    monkeypatch.setattr(store_vector, "get_collection", lambda: collection)
+    vector_store = store_vector.VectorStore(chroma_dir="unused")
+    monkeypatch.setattr(vector_store, "get_collection", lambda: collection)
 
-    results = store_vector.search_chunks([0.1, 0.2], project_id="project_1")
+    results = vector_store.search_chunks([0.1, 0.2], project_id="project_1")
 
     assert collection.query_call["where"] == {"project_id": "project_1"}
     assert results[0]["id"] == "doc_1_chunk_0"
@@ -96,9 +98,10 @@ def test_search_chunks_filters_by_project(monkeypatch):
 
 def test_search_chunks_filters_by_project_and_document_ids(monkeypatch):
     collection = FakeCollection()
-    monkeypatch.setattr(store_vector, "get_collection", lambda: collection)
+    vector_store = store_vector.VectorStore(chroma_dir="unused")
+    monkeypatch.setattr(vector_store, "get_collection", lambda: collection)
 
-    store_vector.search_chunks([0.1], project_id="project_1", document_ids=["doc_1", "doc_2"])
+    vector_store.search_chunks([0.1], project_id="project_1", document_ids=["doc_1", "doc_2"])
 
     assert collection.query_call["where"] == {
         "$and": [
@@ -110,18 +113,20 @@ def test_search_chunks_filters_by_project_and_document_ids(monkeypatch):
 
 def test_delete_document_chunks_deletes_by_document_id(monkeypatch):
     collection = FakeCollection()
-    monkeypatch.setattr(store_vector, "get_collection", lambda: collection)
+    vector_store = store_vector.VectorStore(chroma_dir="unused")
+    monkeypatch.setattr(vector_store, "get_collection", lambda: collection)
 
-    store_vector.delete_document_chunks("doc_1")
+    vector_store.delete_document_chunks("doc_1")
 
     assert collection.delete_call == {"where": {"document_id": "doc_1"}}
 
 
 def test_get_front_matter_chunks_returns_early_chunks_per_document(monkeypatch):
     collection = FakeFrontMatterCollection()
-    monkeypatch.setattr(store_vector, "get_collection", lambda: collection)
+    vector_store = store_vector.VectorStore(chroma_dir="unused")
+    monkeypatch.setattr(vector_store, "get_collection", lambda: collection)
 
-    results = store_vector.get_front_matter_chunks("project_1", max_chunks_per_document=2)
+    results = vector_store.get_front_matter_chunks("project_1", max_chunks_per_document=2)
 
     assert collection.get_call == {
         "where": {"project_id": "project_1"},

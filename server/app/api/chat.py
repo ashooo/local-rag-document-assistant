@@ -4,6 +4,7 @@ from uuid import uuid4
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
+from app.config import CHROMA_DIR
 from app.services.embedder import embed_text
 from app.services.database import (
     create_chat_session,
@@ -11,13 +12,14 @@ from app.services.database import (
     get_chat_session,
     list_project_chat_sessions,
 )
-from app.services.store_vector import get_front_matter_chunks, search_chunks
+from app.services.store_vector import VectorStore
 from app.services.llm import generate_message
 
 router = APIRouter(
     prefix="/chat",
     tags=["chat"],
 )
+vector_store = VectorStore(CHROMA_DIR)
 
 
 class CreateChatRequest(BaseModel):
@@ -110,14 +112,14 @@ def send_message(chat_id: str, request: SendMessageRequest):
 
     project_id = chat_session["project_id"]
     query_embedding = embed_text(user_message)
-    results = search_chunks(
+    results = vector_store.search_chunks(
         query_embedding=query_embedding,
         top_k=request.top_k,
         project_id=project_id,
     )
     if _needs_front_matter(user_message):
         results = _merge_chunks(
-            get_front_matter_chunks(project_id=project_id),
+            vector_store.get_front_matter_chunks(project_id=project_id),
             results,
         )
 
