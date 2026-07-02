@@ -27,6 +27,12 @@ PROVIDERS = {
         "default_model": "llama-3.1-8b-instant",
         "api_key_env": "GROQ_API_KEY",
     },
+    "gemini": {
+        "sdk": "openai",
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "default_model": "gemini-3.5-flash",
+        "api_key_env": "GEMINI_API_KEY",
+    },
     "ollama": {
         "sdk": "ollama",
         "base_url": "http://localhost:11434",
